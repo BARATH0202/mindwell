@@ -1,0 +1,54 @@
+{
+  "name": "ForumPost",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Post title"
+    },
+    "content": {
+      "type": "string",
+      "description": "Post content"
+    },
+    "author": {
+      "type": "string",
+      "description": "Post author (anonymous ID)"
+    },
+    "replies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Replies to this post"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "general",
+        "stress",
+        "anxiety",
+        "depression",
+        "relationships",
+        "academic"
+      ],
+      "description": "Post category"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "author"
+  ]
+}

@@ -1,0 +1,210 @@
+import React, { useState, useEffect, useRef } from "react";
+import { ChatMessage } from "@/entities/ChatMessage";
+import { InvokeLLM } from "@/integrations/Core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Send, Heart, Zap, Brain, Moon, Frown } from "lucide-react";
+
+export default function ChatPage() {
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState("general");
+  const messagesEndRef = useRef(null);
+
+  const quickActions = [
+    { topic: "stress", label: "Stress", icon: Zap, color: "bg-orange-100 text-orange-700 hover:bg-orange-200" },
+    { topic: "anxiety", label: "Anxiety", icon: Brain, color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+    { topic: "sleep", label: "Sleep Issues", icon: Moon, color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
+    { topic: "depression", label: "Depression", icon: Frown, color: "bg-pink-100 text-pink-700 hover:bg-pink-200" }
+  ];
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    // Welcome message
+    const welcomeMessage = {
+      message: "Hello! I'm here to support you with your mental health. I'm a safe space where you can share your feelings without judgment. What would you like to talk about today?",
+      sender: "bot",
+      topic: "general",
+      timestamp: new Date()
+    };
+    setMessages([welcomeMessage]);
+  }, []);
+
+  const handleQuickAction = async (topic) => {
+    setSelectedTopic(topic);
+    const prompts = {
+      stress: "I'm feeling stressed about school and life. Can you help me?",
+      anxiety: "I've been feeling anxious lately. What can I do?",
+      sleep: "I'm having trouble sleeping. Any advice?",
+      depression: "I've been feeling down and unmotivated recently."
+    };
+    
+    await sendMessage(prompts[topic], topic);
+  };
+
+  const sendMessage = async (messageText = inputMessage, topic = selectedTopic) => {
+    if (!messageText.trim()) return;
+
+    const userMessage = {
+      message: messageText,
+      sender: "user",
+      topic: topic,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage("");
+    setIsTyping(true);
+
+    try {
+      // Save user message
+      await ChatMessage.create(userMessage);
+
+      // Get AI response
+      const response = await InvokeLLM({
+        prompt: `You are a compassionate mental health support chatbot for college students. The user is talking about ${topic}. Their message: "${messageText}". 
+        
+        Respond with empathy, understanding, and practical advice. Keep responses warm, supportive, and professional. Offer concrete coping strategies when appropriate. If the situation seems serious, gently suggest professional help while remaining supportive.
+        
+        Keep your response to 2-3 paragraphs maximum. Use a caring, non-judgmental tone.`
+      });
+
+      const botMessage = {
+        message: response,
+        sender: "bot",
+        topic: topic,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+      
+      // Save bot message
+      await ChatMessage.create(botMessage);
+
+    } catch (error) {
+      console.error("Error sending message:", error);
+      const errorMessage = {
+        message: "I'm sorry, I'm having trouble responding right now. Please try again in a moment. If you're in crisis, please reach out to emergency services or your campus counseling center immediately.",
+        sender: "bot",
+        topic: topic,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage();
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Heart className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">AI Mental Health Assistant</h1>
+          <p className="text-gray-600 dark:text-gray-400">Safe • Confidential • Available 24/7</p>
+        </div>
+
+        {/* Quick Action Buttons */}
+        <div className="flex flex-wrap justify-center gap-3 mb-8 animate-slide-up">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Button
+                key={action.topic}
+                variant="outline"
+                onClick={() => handleQuickAction(action.topic)}
+                className={`${action.color} border-0 rounded-full px-4 py-2 font-medium transition-all duration-200 hover:scale-105`}
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                {action.label}
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Chat Container */}
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-0 shadow-2xl rounded-3xl overflow-hidden">
+          {/* Messages Area */}
+          <div className="h-96 md:h-[500px] overflow-y-auto p-6 space-y-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} chat-bubble`}
+              >
+                <div
+                  className={`max-w-xs md:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
+                    message.sender === 'user'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-md'
+                  }`}
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.message}</p>
+                  <p className={`text-xs mt-2 ${
+                    message.sender === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : 'Now'}
+                  </p>
+                </div>
+              </div>
+            ))}
+            
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 dark:bg-gray-700 px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-white/90 dark:bg-gray-800/90">
+            <form onSubmit={handleSubmit} className="flex gap-3">
+              <Input
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Share what's on your mind..."
+                className="flex-1 border-0 bg-gray-100 dark:bg-gray-700 rounded-full px-6 py-3 focus:ring-2 focus:ring-blue-400 focus:bg-white dark:focus:bg-gray-600 transition-all duration-200"
+                disabled={isTyping}
+              />
+              <Button
+                type="submit"
+                disabled={!inputMessage.trim() || isTyping}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full px-6 py-3 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
+            
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+              This is a supportive AI assistant. For emergencies, call 988 or your local crisis hotline.
+            </p>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}

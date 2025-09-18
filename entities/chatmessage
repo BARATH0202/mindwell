@@ -1,0 +1,33 @@
+{
+  "name": "ChatMessage",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "The chat message content"
+    },
+    "sender": {
+      "type": "string",
+      "enum": [
+        "user",
+        "bot"
+      ],
+      "description": "Who sent the message"
+    },
+    "topic": {
+      "type": "string",
+      "enum": [
+        "general",
+        "stress",
+        "anxiety",
+        "sleep",
+        "depression"
+      ],
+      "description": "Mental health topic category"
+    }
+  },
+  "required": [
+    "message",
+    "sender"
+  ]
+}

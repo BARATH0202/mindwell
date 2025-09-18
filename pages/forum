@@ -1,0 +1,300 @@
+import React, { useState, useEffect } from "react";
+import { ForumPost } from "@/entities/Forum";
+import { User } from "@/entities/User";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { MessageCircle, Plus, Send, Users, Heart, Clock } from "lucide-react";
+import { format } from "date-fns";
+
+export default function ForumPage() {
+  const [posts, setPosts] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showNewPost, setShowNewPost] = useState(false);
+  const [newPostTitle, setNewPostTitle] = useState("");
+  const [newPostContent, setNewPostContent] = useState("");
+  const [newPostCategory, setNewPostCategory] = useState("general");
+  const [replyInputs, setReplyInputs] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  const categories = [
+    { value: "general", label: "General", color: "bg-gray-100 text-gray-700" },
+    { value: "stress", label: "Stress", color: "bg-orange-100 text-orange-700" },
+    { value: "anxiety", label: "Anxiety", color: "bg-blue-100 text-blue-700" },
+    { value: "depression", label: "Depression", color: "bg-pink-100 text-pink-700" },
+    { value: "relationships", label: "Relationships", color: "bg-purple-100 text-purple-700" },
+    { value: "academic", label: "Academic", color: "bg-green-100 text-green-700" }
+  ];
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [postsData, userData] = await Promise.all([
+        ForumPost.list("-created_date"),
+        User.me().catch(() => null)
+      ]);
+      setPosts(postsData);
+      setCurrentUser(userData);
+    } catch (error) {
+      console.error("Error loading forum data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createPost = async () => {
+    if (!newPostTitle.trim() || !newPostContent.trim()) return;
+
+    try {
+      const anonymousId = currentUser ? `Student-${currentUser.id.slice(-4)}` : "Anonymous";
+      
+      await ForumPost.create({
+        title: newPostTitle,
+        content: newPostContent,
+        category: newPostCategory,
+        author: anonymousId,
+        replies: []
+      });
+
+      setNewPostTitle("");
+      setNewPostContent("");
+      setShowNewPost(false);
+      loadData();
+    } catch (error) {
+      console.error("Error creating post:", error);
+    }
+  };
+
+  const addReply = async (postId, replyContent) => {
+    if (!replyContent.trim()) return;
+
+    try {
+      const post = posts.find(p => p.id === postId);
+      const anonymousId = currentUser ? `Student-${currentUser.id.slice(-4)}` : "Anonymous";
+      
+      const newReply = {
+        content: replyContent,
+        author: anonymousId,
+        timestamp: new Date().toISOString()
+      };
+
+      const updatedReplies = [...(post.replies || []), newReply];
+      
+      await ForumPost.update(postId, { replies: updatedReplies });
+      
+      setReplyInputs(prev => ({ ...prev, [postId]: "" }));
+      loadData();
+    } catch (error) {
+      console.error("Error adding reply:", error);
+    }
+  };
+
+  const getCategoryStyle = (category) => {
+    const cat = categories.find(c => c.value === category);
+    return cat ? cat.color : "bg-gray-100 text-gray-700";
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="space-y-6">
+            {Array(3).fill(0).map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded"></div>
+                    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Header */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Users className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Peer Support Forum</h1>
+          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            A safe space to connect, share, and support each other through student life challenges
+          </p>
+        </div>
+
+        {/* New Post Button */}
+        <div className="flex justify-center mb-8">
+          <Button
+            onClick={() => setShowNewPost(!showNewPost)}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-6 py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {showNewPost ? "Cancel" : "Create New Post"}
+          </Button>
+        </div>
+
+        {/* New Post Form */}
+        {showNewPost && (
+          <Card className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-2xl rounded-2xl border-0 animate-slide-up">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Share Your Thoughts</h3>
+              <div className="space-y-4">
+                <Input
+                  placeholder="Post title..."
+                  value={newPostTitle}
+                  onChange={(e) => setNewPostTitle(e.target.value)}
+                  className="border-0 bg-gray-50 dark:bg-gray-700 rounded-xl focus:ring-2 focus:ring-purple-400"
+                />
+                
+                <select
+                  value={newPostCategory}
+                  onChange={(e) => setNewPostCategory(e.target.value)}
+                  className="w-full p-3 border-0 bg-gray-50 dark:bg-gray-700 rounded-xl focus:ring-2 focus:ring-purple-400 text-gray-900 dark:text-white"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+                
+                <Textarea
+                  placeholder="What's on your mind? Remember, this is a safe and supportive space..."
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  className="border-0 bg-gray-50 dark:bg-gray-700 rounded-xl focus:ring-2 focus:ring-purple-400 min-h-[120px] resize-none"
+                />
+                
+                <Button
+                  onClick={createPost}
+                  disabled={!newPostTitle.trim() || !newPostContent.trim()}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-medium"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Post Anonymously
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Posts */}
+        <div className="space-y-6">
+          {posts.length > 0 ? (
+            posts.map((post, index) => (
+              <Card
+                key={post.id}
+                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-lg rounded-2xl border-0 hover:shadow-xl transition-all duration-200 animate-fade-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                        {post.title}
+                      </h3>
+                      <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                        <span>{post.author}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {format(new Date(post.created_date), "MMM d, yyyy")}
+                        </span>
+                        <Badge className={`${getCategoryStyle(post.category)} border-0`}>
+                          {categories.find(c => c.value === post.category)?.label || post.category}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <MessageCircle className="w-4 h-4" />
+                      <span className="text-sm">{post.replies?.length || 0}</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="pt-0">
+                  <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed whitespace-pre-wrap">
+                    {post.content}
+                  </p>
+
+                  {/* Replies */}
+                  {post.replies && post.replies.length > 0 && (
+                    <div className="space-y-3 mb-4">
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Replies</h4>
+                      {post.replies.map((reply, replyIndex) => (
+                        <div key={replyIndex} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              {reply.author}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {format(new Date(reply.timestamp), "MMM d, h:mm a")}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                            {reply.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Reply Input */}
+                  <div className="flex gap-3">
+                    <Input
+                      placeholder="Add a supportive reply..."
+                      value={replyInputs[post.id] || ""}
+                      onChange={(e) => setReplyInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                      className="flex-1 border-0 bg-gray-50 dark:bg-gray-700 rounded-xl focus:ring-2 focus:ring-purple-400"
+                    />
+                    <Button
+                      onClick={() => addReply(post.id, replyInputs[post.id] || "")}
+                      disabled={!(replyInputs[post.id] || "").trim()}
+                      variant="outline"
+                      className="rounded-xl border-gray-200 dark:border-gray-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="text-center py-12 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-lg rounded-2xl border-0">
+              <CardContent>
+                <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-8 h-8 text-purple-500" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Start the Conversation</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Be the first to share and connect with fellow students
+                </p>
+                <Button
+                  onClick={() => setShowNewPost(true)}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-6 py-2"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Post
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

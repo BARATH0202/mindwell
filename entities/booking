@@ -1,0 +1,49 @@
+{
+  "name": "Booking",
+  "type": "object",
+  "properties": {
+    "student_name": {
+      "type": "string",
+      "description": "Student's full name"
+    },
+    "student_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Student's email address"
+    },
+    "session_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Appointment date"
+    },
+    "session_time": {
+      "type": "string",
+      "description": "Appointment time"
+    },
+    "counselor_name": {
+      "type": "string",
+      "description": "Selected counselor"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "completed",
+        "cancelled"
+      ],
+      "default": "scheduled",
+      "description": "Booking status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes for the session"
+    }
+  },
+  "required": [
+    "student_name",
+    "student_email",
+    "session_date",
+    "session_time",
+    "counselor_name"
+  ]
+}
